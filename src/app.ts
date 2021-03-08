@@ -31,6 +31,7 @@ export default class App {
     }
 
     /**
+     * Register the summary type metrics for the prom-client
      *
      * @private
      */
@@ -45,9 +46,9 @@ export default class App {
             name: 'http_request_duration_seconds',
             help: 'Duration of HTTP requests in seconds',
             labelNames: ['method', 'route', 'code'],
-            maxAgeSeconds: 60,
+            maxAgeSeconds: 600,
             ageBuckets: 5,
-            percentiles: [0.5, 0.75, 0.9, 0,95, 0.99],
+            // percentiles: [0.5, 0.75, 0.9, 0,95, 0.99],
         })
 
         register.registerMetric(httpRequestDurationMicroseconds)
@@ -60,15 +61,9 @@ export default class App {
      * @param summary
      * @private
      */
-    private callLoadTest(summary: any) {
-        if (this.counter < this.repeat) {
-            setTimeout(() => {
-                for (const url of this.urlList.split(',')) {
-                    loadTestUrl(summary, url)
-                }
-            this.callLoadTest(summary)
-            this.counter++
-            }, 3000)
+    private async callLoadTest(summary: any) {
+        for await (const url of this.urlList.split(',')) {
+            await loadTestUrl(summary, url, this.repeat)
         }
     }
 
@@ -79,7 +74,6 @@ export default class App {
         try {
             this.app.use(bodyParser.json())
             this.app.use(bodyParser.urlencoded({ extended: true }))
-            
             console.log(`Middlewares are ready!`)
         } catch (error) {
             console.error(`Couldn't set up middlewares: ${error}`)
