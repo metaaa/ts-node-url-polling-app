@@ -7,8 +7,9 @@ import autocannon from 'autocannon'
  * @param { Summary } summary
  * @param { String } url
  * @param { number } repeat
+ * @param { boolean } endlessMode
  */
-export async function loadTestUrl(summary: Summary<any>, url: string, repeat: number) {
+export async function loadTestUrl(summary: Summary<any>, url: string, repeat: number, endlessMode: boolean) {
     /**
      * Counter for cli to show the current iteration
      */
@@ -19,14 +20,11 @@ export async function loadTestUrl(summary: Summary<any>, url: string, repeat: nu
      */
     let end = summary.startTimer()
 
-    /**
-     *
-     */
     const instance = await autocannon({
         url: url,
         connections: 1,
         amount: repeat,
-        // forever: true
+        forever: endlessMode
     }, (err, result) => {console.log('vege')})
 
     /**

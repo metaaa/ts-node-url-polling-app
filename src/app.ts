@@ -9,13 +9,15 @@ export default class App {
     public urlList: string
     public repeat: number
     public counter: number
+    public endlessMode: boolean
 
-    constructor(port: number, urlList: string, repeat: number) {
+    constructor(port: number, urlList: string, repeat: number, endlessMode: boolean) {
         this.app = express()
         this.port = port
         this.urlList = urlList
         this.repeat = repeat
         this.counter = 0
+        this.endlessMode = endlessMode
 
         this.initializeMiddlewares()
         this.initializeRoutes()
@@ -47,7 +49,7 @@ export default class App {
             help: 'Duration of HTTP requests in seconds',
             labelNames: ['method', 'route', 'code'],
             maxAgeSeconds: 600,
-            ageBuckets: 5,
+            ageBuckets: this.urlList.length,
             // percentiles: [0.5, 0.75, 0.9, 0,95, 0.99],
         })
 
@@ -63,7 +65,7 @@ export default class App {
      */
     private async callLoadTest(summary: any) {
         for await (const url of this.urlList.split(',')) {
-            await loadTestUrl(summary, url, this.repeat)
+            await loadTestUrl(summary, url, this.repeat, this.endlessMode)
         }
     }
 
