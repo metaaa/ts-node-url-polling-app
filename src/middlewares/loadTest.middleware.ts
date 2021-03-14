@@ -25,16 +25,20 @@ export async function loadTestUrl(summary: Summary<any>, url: string, repeat: nu
         connections: 1,
         amount: repeat,
         forever: endlessMode
-    }, (err, result) => {console.log('vege')})
+    }, (err: any, result: any) => {console.log('result')})
 
     /**
      *
      */
-    instance.on('response', (client, statusCode, resBytes, responseTime) => {
-    console.log(counter++)
+    instance.on('response', (client: any, statusCode: number, resBytes: any, responseTime: number) => {
+        console.log(`${url}: ${counter++}`)
+        if (statusCode === undefined) {
+            // some servers give no response code on failure, thus we want to handle these responses as timed out
+            statusCode = 504
+        }
         end({
             route: url,
-            code: statusCode,
+            code: statusCode, // code undefined esetén egy újabb stack jön létre grafanaban
             method: 'GET'
         })
         end = summary.startTimer()

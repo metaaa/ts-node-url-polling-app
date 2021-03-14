@@ -1,8 +1,8 @@
 {
-    "name": "node-url-polling-app",
-    "version": "1.0.0",
-    "description": "",
-    "main": "server.ts",
+    "name": "gimme-response",
+    "version": "1.0.1",
+    "description": "Simple application to run load tests on external urls",
+    "main": "./lib/server.js",
     "author": "Marton Balogh",
     "license": "MIT",
     "scripts": {

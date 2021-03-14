@@ -1,7 +1,7 @@
 import * as bodyParser from 'body-parser'
 import express from 'express'
 import { register, collectDefaultMetrics, Summary } from 'prom-client'
-import { loadTestUrl } from './middlewares/urlPoller.middleware'
+import { loadTestUrl } from './middlewares/loadTest.middleware'
 
 export default class App {
     public app: express.Application
@@ -10,20 +10,38 @@ export default class App {
     public repeat: number
     public counter: number
     public endlessMode: boolean
+    public cliMode: boolean
+    public silentMode: boolean
 
-    constructor(port: number, urlList: string, repeat: number, endlessMode: boolean) {
+    constructor(
+        port: number,
+        urlList: string,
+        repeat: number,
+        endlessMode: boolean,
+        cliMode: boolean,
+        silentMode:boolean
+    ) {
         this.app = express()
         this.port = port
         this.urlList = urlList
         this.repeat = repeat
         this.counter = 0
         this.endlessMode = endlessMode
+        this.cliMode = cliMode
+        this.silentMode = silentMode
 
         this.initializeMiddlewares()
         this.initializeRoutes()
         this.initializeListeners()
         this.initializesErrorHandlers()
         this.initializePromClient()
+
+        /**
+         * If silent mode enabled all console.log() will be disabled
+         */
+        if (this.silentMode) {
+            console.log = function () {}
+        }
     }
 
     public listen() {
@@ -44,21 +62,27 @@ export default class App {
 
         collectDefaultMetrics({ register })
 
-        const httpRequestDurationMicroseconds = new Summary({
+        const summary = new Summary({
             name: 'http_request_duration_seconds',
             help: 'Duration of HTTP requests in seconds',
             labelNames: ['method', 'route', 'code'],
             maxAgeSeconds: 600,
             ageBuckets: this.urlList.length,
+            // custom percentiles
             // percentiles: [0.5, 0.75, 0.9, 0,95, 0.99],
         })
+        register.registerMetric(summary)
 
-        register.registerMetric(httpRequestDurationMicroseconds)
-        this.callLoadTest(httpRequestDurationMicroseconds)
+        /**
+         * If the app is controlled from the command line the polling should start automatically
+         */
+        if (this.cliMode) {
+            await this.callLoadTest(summary)
+        }
     }
 
     /**
-     * Calls the test recursively
+     * Starts the polling for each of the provided urls
      *
      * @param summary
      * @private
@@ -117,9 +141,10 @@ export default class App {
      * Initializes an error handler to catch all unhandled errors
      */
     public async initializesErrorHandlers() {
-        this.app.use(function(error: any, request: express.Request, response: express.Response, next: express.NextFunction) {
-            console.error(error.message)
-            response.status(error.status || 500)
+        this.app.use(
+            function(error: any, request: express.Request, response: express.Response, next: express.NextFunction) {
+                console.error(error.message)
+                response.status(error.status || 500)
           })
     }
 }
