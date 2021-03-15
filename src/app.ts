@@ -1,6 +1,6 @@
 import * as bodyParser from 'body-parser'
 import express from 'express'
-import { register, collectDefaultMetrics, Summary } from 'prom-client'
+import {register, collectDefaultMetrics, Summary, Counter, Registry} from 'prom-client'
 import { loadTestUrl } from './middlewares/loadTest.middleware'
 
 export default class App {
@@ -62,6 +62,9 @@ export default class App {
 
         collectDefaultMetrics({ register })
 
+        /**
+         * This metric registers the load times
+         */
         const summary = new Summary({
             name: 'http_request_duration_seconds',
             help: 'Duration of HTTP requests in seconds',
@@ -71,13 +74,24 @@ export default class App {
             // custom percentiles
             // percentiles: [0.5, 0.75, 0.9, 0,95, 0.99],
         })
+
+        /**
+         * This metric registers the failed request/invalid responses counter
+         */
+        const errorCounter = new Counter({
+            name: 'http_request_invalid_responses',
+            help: 'Counts invalid responses and timed out requests',
+            labelNames: ['type', 'route'],
+        })
+
         register.registerMetric(summary)
+        register.registerMetric(errorCounter)
 
         /**
          * If the app is controlled from the command line the polling should start automatically
          */
         if (this.cliMode) {
-            await this.callLoadTest(summary)
+            await this.callLoadTest(summary, errorCounter)
         }
     }
 
@@ -85,11 +99,12 @@ export default class App {
      * Starts the polling for each of the provided urls
      *
      * @param summary
+     * @param errorCounter
      * @private
      */
-    private async callLoadTest(summary: any) {
+    private async callLoadTest(summary: Summary<any>, errorCounter: Counter<any>) {
         for await (const url of this.urlList.split(',')) {
-            await loadTestUrl(summary, url, this.repeat, this.endlessMode)
+            await loadTestUrl(summary, errorCounter, url, this.repeat, this.endlessMode)
         }
     }
 

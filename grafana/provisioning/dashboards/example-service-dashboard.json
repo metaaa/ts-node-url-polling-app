@@ -141,7 +141,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "orange",
                 "value": null
               },
               {
@@ -189,10 +189,16 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(increase(http_request_duration_seconds_count{code=~\"5.*\"}[1m]))",
+          "expr": "sum(increase(http_request_invalid_responses{type=\"failed\"}[1m])) by (route)",
           "interval": "",
-          "legendFormat": "",
+          "legendFormat": "Failed request {{route}}",
           "refId": "A"
+        },
+        {
+          "expr": "sum(increase(http_request_invalid_responses{type=\"invalid\"}[1m])) by (route)",
+          "interval": "",
+          "legendFormat": "Invalid request {{route}}",
+          "refId": "B"
         }
       ],
       "thresholds": [],
@@ -284,18 +290,6 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "histogram_quantile(0.9, sum(rate(http_request_duration_seconds_bucket[10m])) by (le, route))",
-          "interval": "",
-          "legendFormat": "p90 {{route}}",
-          "refId": "A"
-        },
-        {
-          "expr": "histogram_quantile(0.5, sum(rate(http_request_duration_seconds_bucket[10m])) by (le, route))",
-          "interval": "",
-          "legendFormat": "Median {{route}}",
-          "refId": "B"
-        },
-        {
           "expr": "rate(http_request_duration_seconds_sum[5m]) / rate(http_request_duration_seconds_count[5m])",
           "interval": "",
           "legendFormat": "Average {{route}}",
@@ -369,7 +363,7 @@
     ]
   },
   "timezone": "",
-  "title": "Example Service Dashboard",
-  "uid": "1DYaynomMk",
+  "title": "urlPoller Dashboard",
+  "uid": "url-poller-dashboard",
   "version": 2
 }

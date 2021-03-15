@@ -1,6 +1,6 @@
 {
-    "name": "gimme-response",
-    "version": "1.0.1",
+    "name": "pagespeed-benchmark-with-graph",
+    "version": "1.0.2",
     "description": "Simple application to run load tests on external urls",
     "main": "./lib/server.js",
     "author": "Marton Balogh",
