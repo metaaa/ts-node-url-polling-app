@@ -25,18 +25,24 @@ export async function loadTestUrl(summary: Summary<any>, errorCounter: Counter<a
         url: url,
         connections: 1,
         amount: repeat,
-        forever: endlessMode
-    }, (err: any, result: any) => {console.log('result')})
+        // forever: endlessMode, --> doesn't work for some reason
+    }, async (err: any, result: any) => {
+        console.log('[DONE] - Test cycle done for: ', url)
+        if (endlessMode) {
+            await loadTestUrl(summary, errorCounter, url, repeat, endlessMode)
+        }
+    })
 
     /**
      * Handle the response got from the server.
      */
     instance.on('response', (client: any, statusCode: number, resBytes: any, responseTime: number) => {
-        console.log(`${url}: ${counter++}`)
         // some servers give no response code, thus we want to handle these responses as invalid
         if (statusCode === undefined) {
+            console.log(`[RES_ERR] - #${counter++} ${url}`)
             errorCounter.inc({type: 'invalid', route: url}, 1)
         } else {
+            console.log(`[OK] - #${counter++} ${url}`)
             // We don't want to register responses with no statusCode
             end({
                 route: url,
@@ -51,6 +57,7 @@ export async function loadTestUrl(summary: Summary<any>, errorCounter: Counter<a
      * Listen to request errors e.g. a timeout.
      */
     instance.on('reqError', (err) => {
+        console.warn(`[REQ_ERR] - #${counter++} ${url}`)
         console.error(err)
         errorCounter.inc({type: 'failed', route: url}, 1)
     })

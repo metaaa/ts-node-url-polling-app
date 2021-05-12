@@ -1,6 +1,6 @@
 import * as bodyParser from 'body-parser'
 import express from 'express'
-import {register, collectDefaultMetrics, Summary, Counter, Registry} from 'prom-client'
+import { register, collectDefaultMetrics, Summary, Counter } from 'prom-client'
 import { loadTestUrl } from './middlewares/loadTest.middleware'
 
 export default class App {
@@ -138,7 +138,7 @@ export default class App {
     }
 
     /**
-     * Initializes uncaugth exception and unhandled rejection listeners
+     * Initializes uncaught exception and unhandled rejection listeners
      */
     private async initializeListeners() {
         process.on('uncaughtException', error => {
