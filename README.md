@@ -1,4 +1,4 @@
-# Simple URL polling app written in node.js and ts
+# URL polling app & Uptime checker
 
 ### Modules:
 - Prometheus
@@ -6,12 +6,13 @@
 
 ### Prerequisities:
 - npm
+- docker
 - docker-compose
 
 ### Usage:
 - clone git repo
-- cd in repo
-- npm install
-- RUN docker-compose up
-  - running without -d the console logs every iteration (if not running in silenced mode)
-- visit localhost:3094/url-poller-dashboard to see fancy graphs
+- `cd` into directory
+- run `npm install`
+- run `docker-compose up`
+  - running without `-d` is useful when using in CLI mode; the console logs every iteration (if not running in silenced mode)
+- visit `localhost:3094/url-poller-dashboard` to see fancy graphs

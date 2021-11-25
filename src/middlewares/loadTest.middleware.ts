@@ -1,64 +1,76 @@
 import { Summary, Counter } from 'prom-client'
-import autocannon from 'autocannon'
+import puppeteer from 'puppeteer';
+import ResourceGUI from '../models/resourceGUI';
+import App from '../app'
+import { errorC, successC, warnC, resetC } from '../helpers/terminalColors';
+import ResourceCLI from '../models/resourceCLI';
 
 /**
  * Calls the load test for the given url with the given repetition
  *
  * @param { Summary } summary
- * @param errorCounter
- * @param { String } url
- * @param { number } repeat
- * @param { boolean } endlessMode
+ * @param { Counter } errorCounter
+ * @param { Array } resource
  */
-export async function loadTestUrl(summary: Summary<any>, errorCounter: Counter<any>,  url: string, repeat: number, endlessMode: boolean) {
+export async function loadTestUrl(summary: Summary<any>, errorCounter: Counter<any>,  resource: ResourceGUI|ResourceCLI) {
+    const browser = await puppeteer.launch({
+        headless: true,
+        args: ['--use-gl=egl'],
+    });
+    const page = await browser.newPage();
+    
     /**
-     * Counter for cli to show the current iteration
-     */
-    let counter = 1
-    /**
+     * The browser is up, a new page has been opened, so we are ready to measure the page load speed.
+     * 
      * Start a timer where the value in seconds will observed
      * In later iterations the value will be updated
      */
     let end = summary.startTimer()
+    const endTime: [number, number] = process.hrtime()
+    let processExecutionTime: number
 
-    const instance = await autocannon({
-        url: url,
-        connections: 1,
-        amount: repeat,
-        // forever: endlessMode, --> doesn't work for some reason
-    }, async (err: any, result: any) => {
-        console.log('[DONE] - Test cycle done for: ', url)
-        if (endlessMode) {
-            await loadTestUrl(summary, errorCounter, url, repeat, endlessMode)
+    await page.goto(resource.url, { waitUntil: 'networkidle2'})
+    .then( async (data: any) => {
+        end({
+            route: resource.url,
+            code: data._status,
+            method: data._method
+        })
+
+        resource.resetErrorsInARowCounter()
+
+        console.log(`[${successC}OK${resetC}] - #${resource.pollCounter} ${resource.url}`)
+    })
+    .catch((err: any) => {
+        errorCounter.inc({type: 'invalid', route: resource.url}, 1)
+
+        resource.increaseErrorCount()
+        console.log(`[${errorC}RES_ERR${resetC}] - #${resource.errorCounter} ${resource.url}`)
+
+        if (App.isVerboseMode()){
+            console.error(err)
+        }
+    })
+    .finally(() => {
+        resource.increasePollCount()
+
+        const processDuration: [number, number] = process.hrtime(endTime)
+        processExecutionTime = processDuration[0] * 1000 + processDuration[1] / 1000000
+console.log(resource.getInterval(), processExecutionTime)
+        if (!resource.isMaxPollCountReached() && !resource.hasErrorLimitReached()) {
+            if (!resource.hasPollingFrequencySet()) {
+                process.nextTick(async () => loadTestUrl(summary, errorCounter, resource))
+            } else {
+                setTimeout(() => {
+                    process.nextTick(async () => await loadTestUrl(summary, errorCounter, resource))
+                }, (resource.getInterval() - processExecutionTime))
+            }
+        } else if (resource.hasErrorLimitReached()) {
+            console.warn(`[${warnC}WARN${resetC}] Polling '${resource.url}' has been failed ${resource.errorsInARow} times in a row. Shutting down polling for this url...`)
+        } else if (resource.isMaxPollCountReached()){
+            console.log(`[${successC}DONE${resetC}] Polling ${resource.url} has been finished!`)
         }
     })
 
-    /**
-     * Handle the response got from the server.
-     */
-    instance.on('response', (client: any, statusCode: number, resBytes: any, responseTime: number) => {
-        // some servers give no response code, thus we want to handle these responses as invalid
-        if (statusCode === undefined) {
-            console.log(`[RES_ERR] - #${counter++} ${url}`)
-            errorCounter.inc({type: 'invalid', route: url}, 1)
-        } else {
-            console.log(`[OK] - #${counter++} ${url}`)
-            // We don't want to register responses with no statusCode
-            end({
-                route: url,
-                code: statusCode, // code undefined esetén egy újabb stack jön létre grafanaban
-                method: 'GET'
-            })
-        }
-        end = summary.startTimer()
-    })
-
-    /**
-     * Listen to request errors e.g. a timeout.
-     */
-    instance.on('reqError', (err) => {
-        console.warn(`[REQ_ERR] - #${counter++} ${url}`)
-        console.error(err)
-        errorCounter.inc({type: 'failed', route: url}, 1)
-    })
+    await browser.close();
 }
