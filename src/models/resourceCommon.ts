@@ -1,6 +1,15 @@
-export default class ResourceCommon {
+import { PuppeteerLifeCycleEvent } from 'puppeteer'
+
+export const validLifeCycleEvents: Array<PuppeteerLifeCycleEvent> = [
+    'load',
+    'domcontentloaded',
+    'networkidle0',
+    'networkidle2',
+]
+
+export default abstract class ResourceCommon {
     /**
-     * Url to be polled
+     * URL to be polled
      */
     public url: string
     /**
@@ -46,23 +55,22 @@ export default class ResourceCommon {
     /**
      * Network status to wait until the loading considered successful [networkidle0|networkidle2]
      */
-    protected waitUntil!: string
+    protected waitUntil!: PuppeteerLifeCycleEvent
 
     /**
      * @constructor
-     * @param url { string }
      */
     constructor(url: string) {
         if (new.target === ResourceCommon) {
             throw Error("Cannot instantiate abstract class!")
         }
 
-        this.url = url
-        this.pollCounter = 1
+        this.pollCounter = 0
         this.errorCounter = 0
         this.errorsInARow = 0
         this.consecutiveErrorLimitReached = false
         this.maxPollCountReached = false
+        this.url = url
     }
 
     /**
@@ -95,11 +103,11 @@ export default class ResourceCommon {
      * Side effect: Sets the polling done if the polling limit was reached
      */
     public increasePollCount(): void {
+        this.pollCounter++
+
         if (!this.endlessMode && this.pollCounter >= this.maxNumberOfRepeats) {
             this.maxPollCountReached = true
         }
-
-        this.pollCounter++
     }
 
     /**
@@ -120,15 +128,25 @@ export default class ResourceCommon {
      *
      * @returns { number }
      */
-    public getInterval(): number {
-        return this.pollFrequency * 60000
+    public getInterval(lastExecutionTime: number): number {
+        return (this.pollFrequency * 60000) - lastExecutionTime
     }
 
     /**
      * Returns whether the resource has any frequency (in mins) set
+     *
      * @returns { boolean }
      */
     public hasPollingFrequencySet(): boolean {
         return this.pollFrequency > 0
+    }
+
+    /**
+     * Returns the HTTP network status, that specifies when should a polling attempt be considered as successful
+     *
+     * @returns { PuppeteerLifeCycleEvent }
+     */
+    public getWaitUntil(): PuppeteerLifeCycleEvent {
+        return this.waitUntil
     }
 }

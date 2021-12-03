@@ -1,4 +1,5 @@
-import ResourceCommon from './resourceCommon'
+import ResourceCommon, { validLifeCycleEvents } from './resourceCommon'
+import { PuppeteerLifeCycleEvent } from 'puppeteer'
 
 /**
  * @extends { ResourceCommon }
@@ -47,10 +48,10 @@ export default class ResourceGUI extends ResourceCommon {
     /**
      * Sets the network status when a polling considered as successful
      *
-     * @param param { string }
+     * @param param { PuppeteerLifeCycleEvent }
      */
-    public setWaitUntil(param: string) {
-        if (param !== 'networkidle0' && param !== 'networkidle2') {
+    public setWaitUntil(param: PuppeteerLifeCycleEvent) {
+        if (!validLifeCycleEvents.includes(param)) {
             throw Error(`Invalid network status type: ${param}`)
         }
         this.waitUntil = param

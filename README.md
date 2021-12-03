@@ -3,6 +3,8 @@
 ### Modules:
 - Prometheus
 - Graphana
+- redis
+- puppeteer
 
 ### Prerequisities:
 - npm

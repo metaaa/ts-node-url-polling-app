@@ -1,4 +1,5 @@
-import ResourceCommon from './resourceCommon';
+import { PuppeteerLifeCycleEvent } from 'puppeteer';
+import ResourceCommon, { validLifeCycleEvents } from './resourceCommon';
 
 /**
  * @extends { ResourceCommon }
@@ -6,7 +7,6 @@ import ResourceCommon from './resourceCommon';
 export default class ResourceCLI extends ResourceCommon {
     /**
      * @constructor
-     * @param url { string }
      */
     constructor(
         url: string,
@@ -17,6 +17,6 @@ export default class ResourceCLI extends ResourceCommon {
         this.endlessMode = process.env['ENDLESS_MODE']?.toLowerCase() === 'true'
         this.maxNumberOfRepeats = Number(process.env['REPEAT_TIMES']?.toLowerCase()) || 0
         this.pollFrequency = Number(process.env['POLL_FREQUENCY']) || 0
-        this.waitUntil = process.env['WAIT_UNTIL'] || 'networkidle0'
+        this.waitUntil = process.env['WAIT_UNTIL'] as PuppeteerLifeCycleEvent || 'networkidle0' as PuppeteerLifeCycleEvent
     }
 }

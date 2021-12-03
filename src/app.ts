@@ -1,27 +1,29 @@
 import * as bodyParser from 'body-parser'
-import express from 'express'
-import { register, collectDefaultMetrics, Summary, Counter } from 'prom-client'
-import { loadTestUrl } from './middlewares/loadTest.middleware'
-import ResourceCLI from './models/resourceCLI'
+import express, { Application } from 'express'
+import { register } from 'prom-client'
+import { createClient } from 'redis'
+import CLIApp from './models/cliApp'
 
 export default class App {
-    public app: express.Application
-    public port: number
-    public urlList: string
+    public app: Application
+    private port: number
+    public redisClient: any
 
     constructor(
         port: number,
-        urlList: string,
     ) {
         this.app = express()
         this.port = port
-        this.urlList = urlList
 
         this.initializeMiddlewares()
         this.initializeRoutes()
         this.initializeListeners()
         this.initializesErrorHandlers()
         this.initializePromClient()
+
+        if (!App.isCLIMode()) {
+            this.initializeRedisClient()
+        }
 
         /**
          * If silent mode enabled all console.log() will be disabled
@@ -70,56 +72,14 @@ export default class App {
      * @private
      */
     private async initializePromClient() {
-        register.setDefaultLabels({
-            app: 'nodejs-url-poller'
-        })
-
-        collectDefaultMetrics({ register })
-
-        /**
-         * This metric registers the load times
-         */
-        const summary = new Summary({
-            name: 'http_request_duration_seconds',
-            help: 'Duration of HTTP requests in seconds',
-            labelNames: ['method', 'route', 'code'],
-            maxAgeSeconds: 600,
-            ageBuckets: this.urlList.length,
-            // custom percentiles
-            // percentiles: [0.5, 0.75, 0.9, 0,95, 0.99],
-        })
-
-        /**
-         * This metric registers the failed request/invalid responses counter
-         */
-        const errorCounter = new Counter({
-            name: 'http_request_invalid_responses',
-            help: 'Counts invalid responses and timed out requests',
-            labelNames: ['type', 'route'],
-        })
-
-        register.registerMetric(summary)
-        register.registerMetric(errorCounter)
-
+        
         /**
          * If the app is controlled from the command line the polling should start automatically
          */
         if (App.isCLIMode()) {
-            await this.callLoadTest(summary, errorCounter)
-        }
-    }
-
-    /**
-     * Starts the polling for each of the provided urls
-     *
-     * @param summary
-     * @param errorCounter
-     * @private
-     */
-    private async callLoadTest(summary: Summary<any>, errorCounter: Counter<any>) {
-        for await (const url of this.urlList.split(',')) {
-            const resourceParams = new ResourceCLI(url)
-            await loadTestUrl(summary, errorCounter, resourceParams)
+            const cliModeApp: CLIApp = new CLIApp()
+            cliModeApp.initCLIRegistry()
+            await cliModeApp.startPolling()
         }
     }
 
@@ -144,6 +104,7 @@ export default class App {
             this.app.route('/metrics')
                 .get(async (request: express.Request, response: express.Response) => {
                     response.setHeader('Content-Type', register.contentType)
+                    // diplays the metrics data for the cli mode (default) registry
                     response.end(await register.metrics())
                 })
             console.log(`Routes were set up!`)
@@ -176,5 +137,28 @@ export default class App {
                 console.error(error.message)
                 response.status(error.status || 500)
           })
+    }
+
+    /**
+     * Initializes a connection to the redis server
+     */
+    private async initializeRedisClient() {
+        const redisUsername: string = process.env['REDIS_USERNAME'] || ''
+        const redisPassword: string = process.env['REDIS_PASSWORD'] || ''
+        const redisHost: string = process.env['REDIS_HOST'] || 'localhost'
+        const redisPort: number = Number(process.env['REDIS_PORT']) || 6379
+
+        if (redisUsername !== '' && redisPassword !== '') {
+            this.redisClient = createClient({
+                url: `redis://${redisUsername}:${redisPassword}@${redisHost}:${redisPort}`
+            })
+        } else {
+            this.redisClient = createClient()
+        }
+        this.redisClient.on('error', (err: any) => console.log('Redis Client Error', err))
+        
+        await this.redisClient.connect()
+
+        console.log(`Connection to redis client has been established on port ${redisPort}!`)
     }
 }
